@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Article, CATEGORIES } from '../types';
+import { Article, CATEGORIES, Language } from '../types';
 import { generateGamingNews, searchLatestNews, fetchTweetsAsNews, structureReviewWithAI } from '../services/geminiService';
 
 interface AdminPanelProps {
   articles: Article[];
   setArticles: React.Dispatch<React.SetStateAction<Article[]>>;
+  language?: Language;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles, language = 'ar' }) => {
   const [loading, setLoading] = useState(false);
   const [topic, setTopic] = useState('');
   const [searchResult, setSearchResult] = useState<{text: string, sources: any[]} | null>(null);
@@ -34,6 +35,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles })
     total: articles.length,
     categories: new Set(articles.map(a => a.category)).size,
     manualPending: articles.filter(a => a.imageUrl.includes('placehold.co')).length
+  };
+
+  const getRatingColor = (rating: number) => {
+    if (rating >= 9) return 'text-gaming-highlight'; // Emerald/Green
+    if (rating >= 7) return 'text-yellow-400';
+    if (rating >= 5) return 'text-orange-400';
+    return 'text-red-500';
+  };
+
+  const getRatingBg = (rating: number) => {
+    if (rating >= 9) return 'bg-gaming-highlight'; 
+    if (rating >= 7) return 'bg-yellow-400';
+    if (rating >= 5) return 'bg-orange-400';
+    return 'bg-red-500';
   };
 
   const handleGenerate = async () => {
@@ -344,39 +359,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles })
 
           <div className="space-y-4 flex flex-col">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">التصنيف والتقييم</label>
-              <div className="flex gap-3">
-                  <div className="relative flex-1">
-                      <select 
-                        value={manualCategory}
-                        onChange={(e) => setManualCategory(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-gaming-highlight focus:outline-none appearance-none"
-                      >
-                        {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
-                      <div className="absolute left-3 top-3 pointer-events-none text-slate-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
+              <label className="block text-sm text-slate-400 mb-1">التصنيف</label>
+              <div className="relative">
+                  <select 
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-gaming-highlight focus:outline-none appearance-none"
+                  >
+                    {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <div className="absolute left-3 top-3 pointer-events-none text-slate-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+              </div>
+
+              {manualCategory === 'مراجعات' && (
+                  <div className="mt-4 bg-black/40 p-5 rounded-2xl border border-slate-600/50 shadow-inner">
+                      <div className="flex justify-between items-end mb-4">
+                        <div className="flex flex-col">
+                           <label className="text-white font-bold mb-1">التقييم النهائي</label>
+                           <span className="text-xs text-slate-400">حرّك المؤشر لتحديد الدرجة</span>
+                        </div>
+                        <div className={`text-4xl font-black font-gaming tracking-tighter ${getRatingColor(parseFloat(manualRating || '0'))}`}>
+                           {manualRating || '0'} <span className="text-base text-slate-500 font-sans font-normal opacity-60">/ 10</span>
+                        </div>
+                      </div>
+                      
+                      <div className="relative h-6 flex items-center">
+                         <div className="absolute w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-300 ${getRatingBg(parseFloat(manualRating || '0'))}`} 
+                                style={{ width: `${(parseFloat(manualRating || '0') / 10) * 100}%` }}
+                            ></div>
+                         </div>
+                         <input 
+                           type="range" 
+                           min="0" 
+                           max="10" 
+                           step="0.1"
+                           value={manualRating || 0}
+                           onChange={(e) => setManualRating(e.target.value)}
+                           className="absolute w-full h-6 opacity-0 cursor-pointer z-10"
+                         />
+                         <div 
+                            className="absolute w-4 h-4 bg-white rounded-full shadow-lg border-2 border-slate-900 pointer-events-none transition-all duration-75"
+                            style={{ left: `calc(${(parseFloat(manualRating || '0') / 10) * 100}% - 8px)` }}
+                         ></div>
+                      </div>
+                      
+                      <div className="flex justify-between text-[10px] text-slate-500 mt-2 font-gaming uppercase tracking-widest px-1">
+                          <span>سيء</span>
+                          <span>متوسط</span>
+                          <span>جيد</span>
+                          <span>ممتاز</span>
+                          <span>أسطوري</span>
                       </div>
                   </div>
-                  
-                  {manualCategory === 'مراجعات' && (
-                      <div className="w-24 relative">
-                          <input 
-                            type="number" 
-                            min="0" 
-                            max="10" 
-                            step="0.1"
-                            value={manualRating}
-                            onChange={(e) => setManualRating(e.target.value)}
-                            placeholder="10"
-                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-3 text-white focus:border-yellow-500 focus:outline-none font-bold text-center"
-                          />
-                          <span className="absolute -top-2 left-0 right-0 text-center text-[10px] text-yellow-500 font-bold bg-slate-800 px-1 mx-auto w-fit">التقييم</span>
-                      </div>
-                  )}
-              </div>
+              )}
             </div>
             
             <div className="mt-2">
@@ -467,7 +508,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles })
                            </div>
                         </td>
                         <td className="px-6 py-4 align-top">
-                            <div className="flex gap-2 mb-2">
+                            <div className="flex flex-col gap-2 mb-2">
                                 <select 
                                     value={editForm.category}
                                     onChange={(e) => setEditForm({...editForm, category: e.target.value})}
@@ -476,14 +517,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ articles, setArticles })
                                     {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 </select>
                                 {editForm.category === 'مراجعات' && (
-                                    <input 
-                                        type="number"
-                                        min="0" max="10" step="0.1"
-                                        value={editForm.rating || ''}
-                                        onChange={(e) => setEditForm({...editForm, rating: parseFloat(e.target.value)})}
-                                        className="w-16 bg-black border border-slate-600 p-2 rounded text-white text-xs text-center"
-                                        placeholder="10"
-                                    />
+                                    <div className="flex items-center gap-2 bg-black border border-slate-600 p-1 rounded">
+                                        <input 
+                                            type="range"
+                                            min="0" max="10" step="0.1"
+                                            value={editForm.rating || 0}
+                                            onChange={(e) => setEditForm({...editForm, rating: parseFloat(e.target.value)})}
+                                            className="flex-1 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                                        />
+                                        <span className={`text-xs font-bold w-8 text-center ${getRatingColor(editForm.rating || 0)}`}>
+                                            {editForm.rating || 0}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                             
